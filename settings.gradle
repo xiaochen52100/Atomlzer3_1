@@ -1,0 +1,2 @@
+include ':app'
+rootProject.name = "Atomlzer 3.0"
