@@ -40,7 +40,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int gear1=1;
     private int gear2=1;
     private boolean delay1=false;
-    private boolean delay2=true;
+    private boolean delay2=false;
     /***********控件初始化*************/
     protected DashboardView tempDashboardView,humDashboardView,levelDashboard;
     protected Button device1Button,device2Button,gearLow1Button,gearHigh1Button,gearLow2Button,gearHigh2Button;
@@ -224,7 +224,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             //System.arraycopy(udpSendBuf,20,LastTime1Byte,0,4);
             //Log.d("TAG",DateForm.byteArrayToInt(LastTime1Byte)+"");
             //Log.d("TAG", Arrays.toString(udpSendBuf));
-            byte[] udpSendBufBoard=new byte[5];
+            byte[] udpSendBufBoard=new byte[8];
             udpSendBufBoard[0]=0x7f;
             if (state1){
                 udpSendBufBoard[1]=1;
@@ -256,7 +256,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 udpSendBufBoard[4]=0;
             }
-
+            udpSendBufBoard[5]=(byte)(180-128);//低
+            udpSendBufBoard[6]=(byte)(210-128);//中
+            udpSendBufBoard[7]=(byte)(250-128);//高
+            //Log.d("TAG","state2:"+state2);
+            //Log.d("TAG","send: " + Arrays.toString(udpSendBufBoard) + "\n");
             new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();
 
         }
