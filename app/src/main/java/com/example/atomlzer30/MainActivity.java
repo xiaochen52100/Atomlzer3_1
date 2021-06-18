@@ -7,6 +7,7 @@ import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -16,6 +17,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.NumberPicker;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.liys.view.LineProView;
 
@@ -28,6 +30,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private long countdown1=0,countdown2=0;//设备倒计时时长
     private int taskTime1=0,taskTime2=0;//设备定时时长
     private Timer timerTask;//计时器
+    private CountDownTimer counttimer1;
+    private CountDownTimer counttimer2;
     private boolean state1=false,state2=false;//设备状态
     private byte sendData=0x20;
     private int temperature=25;
@@ -35,6 +39,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int level=90;
     private int gear1=1;
     private int gear2=1;
+    private boolean delay1=false;
+    private boolean delay2=true;
     /***********控件初始化*************/
     protected DashboardView tempDashboardView,humDashboardView,levelDashboard;
     protected Button device1Button,device2Button,gearLow1Button,gearHigh1Button,gearLow2Button,gearHigh2Button;
@@ -51,8 +57,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
         hideBottomUIMenu();
-        serialPortThread=new SerialPortThread(mHandler);
-        serialPortThread.openSerialPort();
+        //serialPortThread=new SerialPortThread(mHandler);
+        //serialPortThread.openSerialPort();
         device1Button=findViewById(R.id.device1Button);
         device2Button=findViewById(R.id.device2Button);
         gearLow1Button=findViewById(R.id.gearLow1);
@@ -148,6 +154,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             TaskData taskData1=new TaskData();
             if (currentTime>=countdown1){//结束
                 sendData=(byte)(sendData&(~0x01));
+                if (state1){
+                    sendHandler(10,null);
+                }
                 state1=false;
                 sendHandler(1,taskData1);
             }else{//进行中
@@ -163,6 +172,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             TaskData taskData2=new TaskData();
             if (currentTime>=countdown2){//结束
                 sendData=(byte)(sendData&(~0x02));
+                if (state2){
+                    sendHandler(11,null);
+                }
                 state2=false;
                 sendHandler(2,taskData2);
             }else{//进行中
@@ -180,7 +192,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             byte[] sendBuf={0};
             sendBuf[0]=sendData;
             //Log.d("TAG","sendData:"+sendData);
-            serialPortThread.sendSerialPort(sendBuf);
+            //serialPortThread.sendSerialPort(sendBuf);
             //发送udp数据格式
             byte[] udpSendBuf=new byte[80];
             System.arraycopy(DateForm.intToBytesArray(temperature),0,udpSendBuf,0,4);
@@ -216,34 +228,42 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             udpSendBufBoard[0]=0x7f;
             if (state1){
                 udpSendBufBoard[1]=1;
+                if (gear1==1){
+                    udpSendBufBoard[2]=1;
+                }else if (gear1==2){
+                    udpSendBufBoard[2]=2;
+                }
             }else {
-                udpSendBufBoard[1]=0;
-            }
-            if (gear1==1){
-                udpSendBufBoard[2]=1;
-            }else if (gear1==2){
-                udpSendBufBoard[2]=2;
+                if (delay1){
+                    udpSendBufBoard[1]=1;
+                }else {
+                    udpSendBufBoard[1]=0;
+                }
+                udpSendBufBoard[2]=0;
             }
             if (state2){
                 udpSendBufBoard[3]=1;
+                if (gear2==1){
+                    udpSendBufBoard[4]=1;
+                }else if (gear2==2){
+                    udpSendBufBoard[4]=2;
+                }
             }else {
-                udpSendBufBoard[3]=0;
+                if (delay2){
+                    udpSendBufBoard[3]=1;
+                }else {
+                    udpSendBufBoard[3]=0;
+                }
+                udpSendBufBoard[4]=0;
             }
-            if (gear2==1){
-                udpSendBufBoard[4]=1;
-            }else if (gear2==2){
-                udpSendBufBoard[4]=2;
-            }
+
             new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();
 
         }
     };
     private int bytesToInt(byte[] b, int offset) {
-        int res = 0;
-        for(int i=offset;i<offset+4;i++){
-            res += (b[i] & 0xff) << ((3-i)*8);
-        }
-        return res;
+        int res = (b[offset]&0xff)+((b[offset+1]&0xff)<<8)+((b[offset+2]&0xff)<<16)+((b[offset+1]&0xff)<<24);
+        return res&0xffffff;
     }
     private Handler mHandler  = new Handler() {
         public void handleMessage(Message msg) {
@@ -318,8 +338,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                     break;
                 case 10://
+                    counttimer1 = new CountDownTimer(10000, 100) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {
+                            //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            delay1=true;
+                        }
+                        @Override
+                        public void onFinish() {
+                            device1Button.setText("停止");
+                            delay1=false;
+                        }
+                    };
+                    counttimer1.start();
                     break;
                 case 11://
+                    counttimer2 = new CountDownTimer(10000, 100) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {
+                            //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            delay2=true;
+                        }
+                        @Override
+                        public void onFinish() {
+                            device2Button.setText("停止");
+                            delay2=false;
+                        }
+                    };
+                    counttimer2.start();
                     break;
                 case 12://
                     break;
@@ -333,14 +379,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Log.d("TAG","temperature: " + temperature);
                         Log.d("TAG","humidity: " + humidity);
                         Log.d("TAG","levels: " + levels);
+                        //Log.d("TAG","levels: " + ((rcvByte[11]&0xff)+((rcvByte[12]&0xff)*256)));
                         debugTextView.setText(levels+"");
                         //if (levels>100) break;
                         //if (levels<0) break;
                         //level=levels;//(int)((levels-7)/34.00*100);//用于液位校准 7-41
                         if (level<=0) level=0;
                         if (level>=100) level=100;
-                        temperatureTextView.setText(temperature+"℃");
-                        humidityTextView.setText(humidity+"％");
+                        temperatureTextView.setText(temperature/10.0+"℃");
+                        humidityTextView.setText(humidity/10.0+"％");
                         //mCpLoading.setProgress(level);
                     }
                     break;
@@ -360,17 +407,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.device1Button:
+
                 if (!state1){
                     device1Button.setText("停止");
                     long currentTime = System.currentTimeMillis();
                     countdown1=currentTime+taskTime1*60*1000;
                     state1=true;
+
                 }else {
-                    device1Button.setText("开始");
+                    //device1Button.setText("开始");
                     long currentTime = System.currentTimeMillis();
                     countdown1=System.currentTimeMillis();
-                    state1=false;
+                    sendHandler(10,null);
                 }
+                CountDownTimer counttimer3 = new CountDownTimer(5000, 100) {
+                    @Override
+                    public void onTick(long millisUntilFinished) {
+                        //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                        device1Button.setEnabled(false);
+                    }
+                    @Override
+                    public void onFinish() {
+                        device1Button.setEnabled(true);
+                    }
+                };
+                counttimer3.start();
                 break;
             case R.id.device2Button:
                 if (!state2){
@@ -379,11 +440,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     countdown2=currentTime+taskTime2*60*1000;
                     state2=true;
                 }else {
-                    device2Button.setText("开始");
+                    //device2Button.setText("开始");
                     long currentTime = System.currentTimeMillis();
                     countdown2=System.currentTimeMillis();
-                    state2=false;
+                    sendHandler(11,null);
+
                 }
+                CountDownTimer counttimer4 = new CountDownTimer(5000, 100) {
+                    @Override
+                    public void onTick(long millisUntilFinished) {
+                        //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                        device2Button.setEnabled(false);
+                    }
+                    @Override
+                    public void onFinish() {
+                        device2Button.setEnabled(true);
+                    }
+                };
+                counttimer4.start();
                 break;
 
             case R.id.cp_loading:

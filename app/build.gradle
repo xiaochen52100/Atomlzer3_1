@@ -5,7 +5,7 @@ android {
     buildToolsVersion "30.0.2"
 
     defaultConfig {
-        applicationId "com.example.atomlzer30"
+        applicationId "com.example.atomlzer3_1"
         minSdkVersion 19
         targetSdkVersion 30
         versionCode 1
