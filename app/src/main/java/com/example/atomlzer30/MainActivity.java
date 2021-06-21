@@ -316,7 +316,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 case 6://设备1 停止
                     device1Button.setText("开始");
                     countdown1=System.currentTimeMillis();
-                    state1=false;
+                    //state1=false;
+                    counttimer1 = new CountDownTimer(20000, 100) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {
+                            //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            delay1=true;
+                        }
+                        @Override
+                        public void onFinish() {
+                            device1Button.setText("停止");
+                            delay1=false;
+                        }
+                    };
+                    counttimer1.start();
                     break;
                 case 7://设备2 开始
                     device2Button.setText("停止");
@@ -342,7 +355,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                     break;
                 case 10://
-                    counttimer1 = new CountDownTimer(10000, 100) {
+                    counttimer1 = new CountDownTimer(20000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
@@ -357,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     counttimer1.start();
                     break;
                 case 11://
-                    counttimer2 = new CountDownTimer(10000, 100) {
+                    counttimer2 = new CountDownTimer(20000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
@@ -411,7 +424,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.device1Button:
-
                 if (!state1){
                     device1Button.setText("停止");
                     long currentTime = System.currentTimeMillis();
