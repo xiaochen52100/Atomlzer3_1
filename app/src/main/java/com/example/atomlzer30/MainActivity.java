@@ -41,6 +41,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int gear2=1;
     private boolean delay1=false;
     private boolean delay2=false;
+    private int motor1=0;
+    private int motor2=0;
+    private int direction1=1;
+    private int direction2=1;
     /***********控件初始化*************/
     protected DashboardView tempDashboardView,humDashboardView,levelDashboard;
     protected Button device1Button,device2Button,gearLow1Button,gearHigh1Button,gearLow2Button,gearHigh2Button;
@@ -239,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }else {
                     udpSendBufBoard[1]=0;
                 }
-                udpSendBufBoard[2]=0;
+                udpSendBufBoard[2]=(byte)motor1;
             }
             if (state2){
                 udpSendBufBoard[3]=1;
@@ -254,11 +258,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }else {
                     udpSendBufBoard[3]=0;
                 }
-                udpSendBufBoard[4]=0;
+                udpSendBufBoard[4]=(byte)motor2;
             }
             udpSendBufBoard[5]=(byte)(180-128);//低
             udpSendBufBoard[6]=(byte)(210-128);//中
             udpSendBufBoard[7]=(byte)(250-128);//高
+            udpSendBufBoard[8]=(byte)direction1;//电机1方向
+            udpSendBufBoard[9]=(byte)direction2;//电机2方向
             //Log.d("TAG","state2:"+state2);
             //Log.d("TAG","send: " + Arrays.toString(udpSendBufBoard) + "\n");
             new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();
@@ -317,10 +323,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     device1Button.setText("开始");
                     countdown1=System.currentTimeMillis();
                     //state1=false;
+                    //motor1=0;
                     counttimer1 = new CountDownTimer(20000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                                direction1=2;
+                                motor1=2;
+                            }else {
+                                direction1=1;
+                                motor1=0;
+                            }
                             delay1=true;
                         }
                         @Override
@@ -359,6 +373,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                                direction1=2;
+                                motor1=2;
+                            }else {
+                                direction1=1;
+                                motor1=0;
+                            }
                             delay1=true;
                         }
                         @Override
@@ -374,6 +395,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
+                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                                direction2=2;
+                                motor2=2;
+                            }else {
+                                direction2=1;
+                                motor2=0;
+                            }
                             delay2=true;
                         }
                         @Override
