@@ -4,6 +4,7 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
+import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -36,15 +37,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private byte sendData=0x20;
     private int temperature=25;
     private int humidity =60;
-    private int level=90;
-    private int gear1=1;
+    private int level=5;
+    private int gear1=1;    //蠕动泵挡位
     private int gear2=1;
-    private boolean delay1=false;
+    private boolean delay1=false;   //电磁阀延时关闭
     private boolean delay2=false;
-    private int motor1=0;
+    private int motor1=0;   //蠕动泵开关
     private int motor2=0;
-    private int direction1=1;
+    private int direction1=1;   //蠕动泵方向
     private int direction2=1;
+    private boolean levelFlag=false;    //低液位对话框标志
+    private int lock=0;         //电磁锁
+    private int progess1=0,progess2=0;      //工作进度
+    private boolean flashing=false; //闪烁标志
     /***********控件初始化*************/
     protected DashboardView tempDashboardView,humDashboardView,levelDashboard;
     protected Button device1Button,device2Button,gearLow1Button,gearHigh1Button,gearLow2Button,gearHigh2Button;
@@ -90,8 +95,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         gearHigh2Button.setOnClickListener(this);
         temperatureTextView.setOnClickListener(this);
 
-        np1.setMinValue(0);
-        np1.setMaxValue(15);
+        np1.setMinValue(1);
+        np1.setMaxValue(60);
         np1.setValue(5);
 
         taskTime1=np1.getValue();
@@ -106,8 +111,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
 
-        np2.setMinValue(0);
-        np2.setMaxValue(15);
+        np2.setMinValue(1);
+        np2.setMaxValue(60);
         np2.setValue(5);
         np2.setDescendantFocusability(NumberPicker.FOCUS_BLOCK_DESCENDANTS);
         taskTime2=np2.getValue();
@@ -138,6 +143,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         new Udp.udpReceiveBroadCast("232.11.12.13",6000,mHandler).start();
         new Udp.udpReceiveBroadCast("232.11.12.13",7000,mHandler).start();
+
     }
     protected void hideBottomUIMenu() {
         //隐藏虚拟按键，并且全屏
@@ -159,6 +165,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (currentTime>=countdown1){//结束
                 sendData=(byte)(sendData&(~0x01));
                 if (state1){
+                    delay1=true;
                     sendHandler(10,null);
                 }
                 state1=false;
@@ -177,6 +184,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (currentTime>=countdown2){//结束
                 sendData=(byte)(sendData&(~0x02));
                 if (state2){
+                    delay2=true;
                     sendHandler(11,null);
                 }
                 state2=false;
@@ -223,17 +231,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             System.arraycopy(DateForm.intToBytesArray(gear2),0,udpSendBuf,56,4);
 
-            new Udp.udpSendBroadCast("232.11.12.13",6000,udpSendBuf).start();
-            //byte[] LastTime1Byte=new byte[4];
-            //System.arraycopy(udpSendBuf,20,LastTime1Byte,0,4);
-            //Log.d("TAG",DateForm.byteArrayToInt(LastTime1Byte)+"");
-            //Log.d("TAG", Arrays.toString(udpSendBuf));
-            byte[] udpSendBufBoard=new byte[8];
+            new Udp.udpSendBroadCast("232.11.12.13",6000,udpSendBuf).start();           //发送给喷枪的数据
+
+            byte[] udpSendBufBoard=new byte[15];
             udpSendBufBoard[0]=0x7f;
             if (state1){
-                udpSendBufBoard[1]=1;
+                udpSendBufBoard[1]=1;   //电磁阀1
                 if (gear1==1){
-                    udpSendBufBoard[2]=1;
+                    udpSendBufBoard[2]=1;  //蠕动泵挡位1
                 }else if (gear1==2){
                     udpSendBufBoard[2]=2;
                 }
@@ -260,14 +265,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 udpSendBufBoard[4]=(byte)motor2;
             }
-            udpSendBufBoard[5]=(byte)(180-128);//低
-            udpSendBufBoard[6]=(byte)(210-128);//中
+            udpSendBufBoard[5]=(byte)(220-128);//低
+            udpSendBufBoard[6]=(byte)(230-128);//中
             udpSendBufBoard[7]=(byte)(250-128);//高
             udpSendBufBoard[8]=(byte)direction1;//电机1方向
             udpSendBufBoard[9]=(byte)direction2;//电机2方向
-            //Log.d("TAG","state2:"+state2);
-            //Log.d("TAG","send: " + Arrays.toString(udpSendBufBoard) + "\n");
-            new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();
+            udpSendBufBoard[10]=(byte)level;//液位
+            udpSendBufBoard[11]=(byte)lock;//电磁锁
+            if (!state1&&!state2){
+                udpSendBufBoard[12]=0;          //r
+                udpSendBufBoard[13]=(byte)0xff; //g
+                udpSendBufBoard[14]=0;          //b
+            }else if(state1&&progess1!=0){      //红色渐变到绿色
+                udpSendBufBoard[12]=(byte)(255-255/100.00*progess1);         //r由255渐变到0
+                udpSendBufBoard[13]=(byte)(255/100.00*progess1);         //g由0渐变到255
+                udpSendBufBoard[14]=0;
+            }else if(state2&&progess2!=0){      //红色渐变到绿色
+                udpSendBufBoard[12]=(byte)(255-255/100.00*progess2);         //r由255渐变到0
+                udpSendBufBoard[13]=(byte)(255/100.00*progess2);         //g由0渐变到255
+                udpSendBufBoard[14]=0;
+            }
+            if (!state1||!state2){      //如果程序为工作
+                if (level<10){          //低液位 黄色闪烁
+                    if (flashing){
+                        udpSendBufBoard[12]=(byte)0XFF;
+                        udpSendBufBoard[13]=(byte)0XFF;
+                        udpSendBufBoard[14]=0X00;
+                        flashing=false;
+                    }else {
+                        udpSendBufBoard[12]=0;
+                        udpSendBufBoard[13]=0;
+                        udpSendBufBoard[14]=0;
+                        flashing=true;
+                    }
+
+                }
+            }
+            new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();  //发送给主板的数据
 
         }
     };
@@ -284,10 +318,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         TaskData taskData=new TaskData();
                         taskData=(TaskData)msg.obj;
                         lineProView1.setProgress(100-taskData.getProgess()*100);
+                        progess1=(int)(100-taskData.getProgess()*100);
                         String minutes=String.format("%0" + 2 + "d", taskData.getLastTime()/60);
                         String second=String.format("%0" + 2 + "d", ((int)taskData.getLastTime()%60));
                         lastTime1.setText(minutes+":"+second);
                     }else {
+                        progess1=0;
                         lineProView1.setProgress(0);
                         lastTime1.setText("00:00");
                         device1Button.setText("开始");
@@ -298,10 +334,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         TaskData taskData=new TaskData();
                         taskData=(TaskData)msg.obj;
                         lineProView2.setProgress(100-taskData.getProgess()*100);
+                        progess2=(int)(100-taskData.getProgess()*100);
                         String minutes=String.format("%0" + 2 + "d", taskData.getLastTime()/60);
                         String second=String.format("%0" + 2 + "d", ((int)taskData.getLastTime()%60));
                         lastTime2.setText(minutes+":"+second);
                     }else {
+                        progess2=0;
                         lineProView2.setProgress(0);
                         lastTime2.setText("00:00");
                         device2Button.setText("开始");
@@ -324,11 +362,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     countdown1=System.currentTimeMillis();
                     //state1=false;
                     //motor1=0;
-                    counttimer1 = new CountDownTimer(20000, 100) {
+                    delay1=true;
+                    counttimer1 = new CountDownTimer(20000, 100) {      //延迟二十秒关闭
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){             //电机反转十秒
                                 direction1=2;
                                 motor1=2;
                             }else {
@@ -368,12 +407,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         gearHigh1Button.setBackgroundColor(Color.parseColor("#03DAC5"));
                     }
                     break;
-                case 10://
+                case 10://设备1 停止延迟动作
+                    delay1=true;
                     counttimer1 = new CountDownTimer(20000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){
                                 direction1=2;
                                 motor1=2;
                             }else {
@@ -390,12 +430,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     };
                     counttimer1.start();
                     break;
-                case 11://
+                case 11://设备2 停止延迟动作
+                    delay2=true;
                     counttimer2 = new CountDownTimer(20000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>5&&((millisUntilFinished-1) / 1000)<15){
+                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){
                                 direction2=2;
                                 motor2=2;
                             }else {
@@ -431,9 +472,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         //level=levels;//(int)((levels-7)/34.00*100);//用于液位校准 7-41
                         if (level<=0) level=0;
                         if (level>=100) level=100;
+                        if (level>=15){
+                            lock=0;
+                        }
                         temperatureTextView.setText(temperature/10.0+"℃");
                         humidityTextView.setText(humidity/10.0+"％");
                         //mCpLoading.setProgress(level);
+                        if (!levelFlag&&level<=10){
+                            levelFlag=true;
+                            CustomDialog.Builder builder = new CustomDialog.Builder(MainActivity.this);
+                            builder.setMessage("液体不足，请加液！\n按确定打开电磁锁换液体");
+                            builder.setTitleText("警告");
+                            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    //dialog.dismiss();
+                                    //设置你的操作事项
+                                    //Toast.makeText(MainActivity.this,"queding",Toast.LENGTH_SHORT).show();
+                                    lock=1;
+                                    level=15;
+                                    levelFlag=false;
+                                    dialog.dismiss();
+                                }
+                            });
+
+                            builder.setNegativeButton("取消",
+                                    new android.content.DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            //Toast.makeText(MainActivity.this,"queding",Toast.LENGTH_SHORT).show();
+                                            //dialog.dismiss();
+                                        }
+                                    });
+
+                            builder.create().show();
+                        }
+
                     }
                     break;
             }
@@ -452,6 +524,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.device1Button:
+                if (state2) break;
                 if (!state1){
                     device1Button.setText("停止");
                     long currentTime = System.currentTimeMillis();
@@ -478,6 +551,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 counttimer3.start();
                 break;
             case R.id.device2Button:
+                if (state1) break;
                 if (!state2){
                     device2Button.setText("停止");
                     long currentTime = System.currentTimeMillis();
@@ -505,9 +579,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
 
             case R.id.cp_loading:
-                //Log.d("TAG","hello");
-                //new Udp.udpSendBroadCast("hello").start();
-//                new Udp.udpReceiveBroadCast(mHandler).start();
+
                 break;
             case R.id.temperature:
                 //new Udp.udpReceiveBroadCast().start();
