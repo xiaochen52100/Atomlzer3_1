@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,7 +28,8 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
-    public  SerialPortThread serialPortThread;
+    //public  SerialPortThread serialPortThread;
+    private SharedPreferences sp;
     private long countdown1=0,countdown2=0;//设备倒计时时长
     private int taskTime1=0,taskTime2=0;//设备定时时长
     private Timer timerTask;//计时器
@@ -37,7 +39,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private byte sendData=0x20;
     private int temperature=25;
     private int humidity =60;
-    private int level=5;
+    private int level=100;
     private int gear1=1;    //蠕动泵挡位
     private int gear2=1;
     private boolean delay1=false;   //电磁阀延时关闭
@@ -50,6 +52,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int lock=0;         //电磁锁
     private int progess1=0,progess2=0;      //工作进度
     private boolean flashing=false; //闪烁标志
+    private int adc=0;
+    private int tunTime=0;          //
+    private int levelTime=600;     //一桶液多长时间喷完
+    private int levelPercent=levelTime/100; //百分点
+    private int levelCount1=0;
+    private int levelCount2=0;
     /***********控件初始化*************/
     protected DashboardView tempDashboardView,humDashboardView,levelDashboard;
     protected Button device1Button,device2Button,gearLow1Button,gearHigh1Button,gearLow2Button,gearHigh2Button;
@@ -68,6 +76,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         hideBottomUIMenu();
         //serialPortThread=new SerialPortThread(mHandler);
         //serialPortThread.openSerialPort();
+        sp=getSharedPreferences("parameter", MODE_PRIVATE);
+        level=sp.getInt("level", 100);
+        if (level<5)    level=5;
+        if (level>100)  level=100;
         device1Button=findViewById(R.id.device1Button);
         device2Button=findViewById(R.id.device2Button);
         gearLow1Button=findViewById(R.id.gearLow1);
@@ -129,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mCpLoading = findViewById(R.id.cp_loading);
         //mCpLoading.setProgress(100,5000);
-        mCpLoading.setProgress(90);
+        mCpLoading.setProgress(level);
         mCpLoading.setOnCircleProgressListener(new CircleProgress.OnCircleProgressListener() {
             @Override
             public boolean OnCircleProgress(int progress) {
@@ -162,6 +174,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void run() {
             long currentTime = System.currentTimeMillis();
             TaskData taskData1=new TaskData();
+            sendHandler(12,0);
             if (currentTime>=countdown1){//结束
                 sendData=(byte)(sendData&(~0x01));
                 if (state1){
@@ -170,6 +183,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 state1=false;
                 sendHandler(1,taskData1);
+                levelCount1=0;
             }else{//进行中
                 sendData=(byte)(sendData|0x01);
                 double progess=((double) (countdown1-currentTime))/(double)(taskTime1*60*1000);
@@ -178,7 +192,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 int time= (int) ((countdown1-currentTime)/1000);
                 taskData1.setLastTime(time);
                 sendHandler(1,taskData1);
+                levelCount1++;
+                if (levelCount1>=levelPercent){
+                    level=level-1;
+                    if (level<3)    level=3;
+                    levelCount1=0;
+                    SharedPreferences.Editor editor = sp.edit();
+                    editor.putInt("level", level);
+                    editor.commit();
 
+                }
             }
             TaskData taskData2=new TaskData();
             if (currentTime>=countdown2){//结束
@@ -189,6 +212,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 state2=false;
                 sendHandler(2,taskData2);
+                levelCount2=0;
             }else{//进行中
                 sendData=(byte)(sendData|0x02);
                 double progess=((double) (countdown2-currentTime))/(double)(taskTime2*60*1000);
@@ -197,8 +221,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 int time= (int) ((countdown2-currentTime)/1000);
                 taskData2.setLastTime(time);
                 sendHandler(2,taskData2);
-                byte[] sendBuf={0x25};
-                //serialPortThread.sendSerialPort(sendBuf);
+                levelCount2++;
+                if (levelCount2>=levelPercent){
+                    level=level-1;
+                    if (level<3)    level=3;
+                    levelCount2=0;
+                    SharedPreferences.Editor editor = sp.edit();
+                    editor.putInt("level", level);
+                    editor.commit();
+                }
             }
 
             byte[] sendBuf={0};
@@ -454,6 +485,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     counttimer2.start();
                     break;
                 case 12://
+                    mCpLoading.setProgress(level);
                     break;
 
                 case 13:
@@ -461,45 +493,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     if (rcvByte[0]==(byte)0x7f){
                         int temperature=bytesToInt(rcvByte,3);
                         int humidity=bytesToInt(rcvByte,7);
-                        int levels=bytesToInt(rcvByte,11);
+                        adc=bytesToInt(rcvByte,11);
                         Log.d("TAG","temperature: " + temperature);
                         Log.d("TAG","humidity: " + humidity);
-                        Log.d("TAG","levels: " + levels);
-                        //Log.d("TAG","levels: " + ((rcvByte[11]&0xff)+((rcvByte[12]&0xff)*256)));
-                        debugTextView.setText(levels+"");
-                        //if (levels>100) break;
-                        //if (levels<0) break;
-                        //level=levels;//(int)((levels-7)/34.00*100);//用于液位校准 7-41
-                        if (level<=0) level=0;
-                        if (level>=100) level=100;
-                        if (level>=15){
-                            lock=0;
-                        }
+                        debugTextView.setText(adc+"");
                         temperatureTextView.setText(temperature/10.0+"℃");
                         humidityTextView.setText(humidity/10.0+"％");
-                        //mCpLoading.setProgress(level);
-                        if (!levelFlag&&level<=10){
+//                        mCpLoading.setProgress(level);
+                        if (!levelFlag&&(adc<800||level<=5)){
                             levelFlag=true;
+                            if (state1){
+                                countdown1=System.currentTimeMillis();
+                                sendHandler(10,null);
+                            }else if (state2){
+                                countdown2=System.currentTimeMillis();
+                                sendHandler(11,null);
+                            }
                             CustomDialog.Builder builder = new CustomDialog.Builder(MainActivity.this);
-                            builder.setMessage("液体不足，请加液！\n按确定打开电磁锁换液体");
+                            builder.setMessage("液体不足，请加液！\n按开锁电磁锁打开换液，换完后点完成");
                             builder.setTitleText("警告");
-                            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            builder.setPositiveButton("开锁", new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int which) {
-                                    //dialog.dismiss();
-                                    //设置你的操作事项
-                                    //Toast.makeText(MainActivity.this,"queding",Toast.LENGTH_SHORT).show();
-                                    lock=1;
-                                    level=15;
-                                    levelFlag=false;
-                                    dialog.dismiss();
+                                    lock=1; //电磁锁上电
+
                                 }
                             });
 
-                            builder.setNegativeButton("取消",
+                            builder.setNegativeButton("完成",
                                     new android.content.DialogInterface.OnClickListener() {
                                         public void onClick(DialogInterface dialog, int which) {
-                                            //Toast.makeText(MainActivity.this,"queding",Toast.LENGTH_SHORT).show();
-                                            //dialog.dismiss();
+                                            if (adc>1000){
+                                                level=100;
+                                                lock=0;
+                                                levelFlag=false;
+                                                dialog.dismiss();
+                                            }
                                         }
                                     });
 
