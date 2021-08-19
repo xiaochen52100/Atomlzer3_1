@@ -52,10 +52,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int lock=0;         //电磁锁
     private int progess1=0,progess2=0;      //工作进度
     private boolean flashing=false; //闪烁标志
-    private int adc=0;
-    private int tunTime=0;          //
+    private int adc=0;      //液位传感器adc值
     private int levelTime=600;     //一桶液多长时间喷完
-    private int levelPercent=levelTime/100; //百分点
+    private int levelPercent=levelTime/100; //分度值
     private int levelCount1=0;
     private int levelCount2=0;
     /***********控件初始化*************/
@@ -153,6 +152,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             timerTask = new Timer(true);
             timerTask.schedule(countTask, 500, 1000);
         }
+        //开启UDP接收
         new Udp.udpReceiveBroadCast("232.11.12.13",6000,mHandler).start();
         new Udp.udpReceiveBroadCast("232.11.12.13",7000,mHandler).start();
 
@@ -170,11 +170,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             _window.setAttributes(params);
         }
     }
+    /*
+        整个系统的定时器
+    */
     public TimerTask countTask = new TimerTask() {
         public void run() {
             long currentTime = System.currentTimeMillis();
             TaskData taskData1=new TaskData();
-            sendHandler(12,0);
+            sendHandler(12,0);  //刷新液位
             if (currentTime>=countdown1){//结束
                 sendData=(byte)(sendData&(~0x01));
                 if (state1){
