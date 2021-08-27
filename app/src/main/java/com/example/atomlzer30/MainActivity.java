@@ -301,7 +301,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             udpSendBufBoard[5]=(byte)(220-128);//低
             udpSendBufBoard[6]=(byte)(230-128);//中
-            udpSendBufBoard[7]=(byte)(250-128);//高
+            udpSendBufBoard[7]=(byte)(255-128);//高
             udpSendBufBoard[8]=(byte)direction1;//电机1方向
             udpSendBufBoard[9]=(byte)direction2;//电机2方向
             udpSendBufBoard[10]=(byte)level;//液位
@@ -397,11 +397,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     //state1=false;
                     //motor1=0;
                     delay1=true;
-                    counttimer1 = new CountDownTimer(20000, 100) {      //延迟二十秒关闭
+                    counttimer1 = new CountDownTimer(5000, 100) {      //延迟二十秒关闭
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){             //电机反转十秒
+                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){             //电机反转十秒
                                 direction1=2;
                                 motor1=2;
                             }else {
@@ -443,11 +443,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 case 10://设备1 停止延迟动作
                     delay1=true;
-                    counttimer1 = new CountDownTimer(20000, 100) {
+                    counttimer1 = new CountDownTimer(5000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){
+                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){
                                 direction1=2;
                                 motor1=2;
                             }else {
@@ -466,11 +466,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 case 11://设备2 停止延迟动作
                     delay2=true;
-                    counttimer2 = new CountDownTimer(20000, 100) {
+                    counttimer2 = new CountDownTimer(5000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>10&&((millisUntilFinished-1) / 1000)<19){
+                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){
                                 direction2=2;
                                 motor2=2;
                             }else {
