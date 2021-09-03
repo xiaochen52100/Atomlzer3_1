@@ -122,6 +122,8 @@ public class CustomDialog extends Dialog {
                     LinearLayout.LayoutParams.FILL_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             // set the dialog title
             ((TextView) layout.findViewById(R.id.title)).setText(title);
+            dialog.setCanceledOnTouchOutside(false);
+            dialog.setCancelable(false);
             // set the confirm button
             if (positiveButtonText != null) {
                 ((TextView) layout.findViewById(R.id.positiveTextView))

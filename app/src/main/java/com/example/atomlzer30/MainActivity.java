@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int lock=0;         //电磁锁
     private int progess1=0,progess2=0;      //工作进度
     private boolean flashing=false; //闪烁标志
-    private int adc=0;      //液位传感器adc值
+    private int adc=1000;      //液位传感器adc值
     private int levelTime=600;     //一桶液多长时间喷完
     private int levelPercent=levelTime/100; //分度值
     private int levelCount1=0;
@@ -311,15 +311,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 udpSendBufBoard[13]=(byte)0xff; //g
                 udpSendBufBoard[14]=0;          //b
             }else if(state1&&progess1!=0){      //红色渐变到绿色
-                udpSendBufBoard[12]=(byte)(255-255/100.00*progess1);         //r由255渐变到0
-                udpSendBufBoard[13]=(byte)(255/100.00*progess1);         //g由0渐变到255
-                udpSendBufBoard[14]=0;
+                if (progess1<=60){
+                    udpSendBufBoard[12]=(byte)0xff;          //r
+                    udpSendBufBoard[13]=0;                  //g
+                    udpSendBufBoard[14]=0;                  //b
+                }else {
+                    udpSendBufBoard[12]=(byte)(255-255/40.00*(progess1-60));         //r由255渐变到0
+                    udpSendBufBoard[13]=(byte)(255/40.00*(progess1-60));         //g由0渐变到255
+                    udpSendBufBoard[14]=0;
+                }
+
             }else if(state2&&progess2!=0){      //红色渐变到绿色
-                udpSendBufBoard[12]=(byte)(255-255/100.00*progess2);         //r由255渐变到0
-                udpSendBufBoard[13]=(byte)(255/100.00*progess2);         //g由0渐变到255
-                udpSendBufBoard[14]=0;
+                if (progess2<=60){
+                    udpSendBufBoard[12]=(byte)0xff;          //r
+                    udpSendBufBoard[13]=0;                  //g
+                    udpSendBufBoard[14]=0;                  //b
+                }else {
+                    udpSendBufBoard[12]=(byte)(255-255/40.00*(progess2-60));         //r由255渐变到0
+                    udpSendBufBoard[13]=(byte)(255/40.00*(progess2-60));         //g由0渐变到255
+                    udpSendBufBoard[14]=0;
+                }
             }
-            if (!state1||!state2){      //如果程序为工作
+            if (!state1||!state2){      //如果程序未工作
                 if (level<10){          //低液位 黄色闪烁
                     if (flashing){
                         udpSendBufBoard[12]=(byte)0XFF;
@@ -336,6 +349,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             }
             new Udp.udpSendBroadCast("232.11.12.13",7000,udpSendBufBoard).start();  //发送给主板的数据
+            sendHandler(14,0);
+
 
         }
     };
@@ -397,23 +412,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     //state1=false;
                     //motor1=0;
                     delay1=true;
-                    counttimer1 = new CountDownTimer(5000, 100) {      //延迟二十秒关闭
+                    counttimer1 = new CountDownTimer(10000, 100) {      //延迟二十秒关闭
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){             //电机反转十秒
-                                direction1=2;
-                                motor1=2;
-                            }else {
-                                direction1=1;
-                                motor1=0;
-                            }
+//                            if (((millisUntilFinished-1) / 1000)>3&&((millisUntilFinished-1) / 1000)<4){             //电机反转十秒
+//                                direction1=2;
+//                                motor1=2;
+//                            }else {
+//                                direction1=1;
+//                                motor1=0;
+//                            }
+//                            direction1=2;
+//                            motor1=2;
                             delay1=true;
                         }
                         @Override
                         public void onFinish() {
                             device1Button.setText("停止");
                             delay1=false;
+                            direction1=1;
+                            motor1=0;
                         }
                     };
                     counttimer1.start();
@@ -443,46 +462,54 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 case 10://设备1 停止延迟动作
                     delay1=true;
-                    counttimer1 = new CountDownTimer(5000, 100) {
+                    counttimer1 = new CountDownTimer(10000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){
-                                direction1=2;
-                                motor1=2;
-                            }else {
-                                direction1=1;
-                                motor1=0;
-                            }
+//                            if (((millisUntilFinished-1) / 1000)>3&&((millisUntilFinished-1) / 1000)<4){
+//                                direction1=2;
+//                                motor1=2;
+//                            }else {
+//                                direction1=1;
+//                                motor1=0;
+//                            }
+//                            direction1=2;
+//                            motor1=2;
                             delay1=true;
                         }
                         @Override
                         public void onFinish() {
                             device1Button.setText("停止");
                             delay1=false;
+                            direction1=1;
+                            motor1=0;
                         }
                     };
                     counttimer1.start();
                     break;
                 case 11://设备2 停止延迟动作
                     delay2=true;
-                    counttimer2 = new CountDownTimer(5000, 100) {
+                    counttimer2 = new CountDownTimer(10000, 100) {
                         @Override
                         public void onTick(long millisUntilFinished) {
                             //device1Button.setText(((millisUntilFinished-1) / 1000)+"秒后停止");
-                            if (((millisUntilFinished-1) / 1000)>1&&((millisUntilFinished-1) / 1000)<4){
-                                direction2=2;
-                                motor2=2;
-                            }else {
-                                direction2=1;
-                                motor2=0;
-                            }
+//                            if (((millisUntilFinished-1) / 1000)>3&&((millisUntilFinished-1) / 1000)<4){
+//                                direction2=2;
+//                                motor2=2;
+//                            }else {
+//                                direction2=1;
+//                                motor2=0;
+//                            }
+//                            direction2=2;
+//                            motor2=2;
                             delay2=true;
                         }
                         @Override
                         public void onFinish() {
                             device2Button.setText("停止");
                             delay2=false;
+                            direction2=1;
+                            motor2=0;
                         }
                     };
                     counttimer2.start();
@@ -502,40 +529,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         debugTextView.setText(adc+"");
                         temperatureTextView.setText(temperature/10.0+"℃");
                         humidityTextView.setText(humidity/10.0+"％");
-//                        mCpLoading.setProgress(level);
-                        if (!levelFlag&&(adc<800||level<=5)){
-                            levelFlag=true;
-                            if (state1){
-                                countdown1=System.currentTimeMillis();
-                                sendHandler(10,null);
-                            }else if (state2){
-                                countdown2=System.currentTimeMillis();
-                                sendHandler(11,null);
-                            }
-                            CustomDialog.Builder builder = new CustomDialog.Builder(MainActivity.this);
-                            builder.setMessage("液体不足，请加液！\n按开锁电磁锁打开换液，换完后点完成");
-                            builder.setTitleText("警告");
-                            builder.setPositiveButton("开锁", new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int which) {
-                                    lock=1; //电磁锁上电
 
-                                }
-                            });
+                    }
+                    break;
+                case 14:
 
-                            builder.setNegativeButton("完成",
-                                    new android.content.DialogInterface.OnClickListener() {
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            if (adc>1000){
-                                                level=100;
-                                                lock=0;
-                                                levelFlag=false;
-                                                dialog.dismiss();
-                                            }
-                                        }
-                                    });
+                    if (!levelFlag&&(adc<820||level<=5)){
+                        levelFlag=true;
+//                        if (state1){
+//                            countdown1=System.currentTimeMillis();
+//                            sendHandler(10,null);
+//                        }
+//                        if (state2){
+//                            countdown2=System.currentTimeMillis();
+//                            sendHandler(11,null);
+//                        }
+                        CustomDialog.Builder builder = new CustomDialog.Builder(MainActivity.this);
+                        builder.setMessage("液体不足，请加液！\n换完后点击完成");
+                        builder.setTitleText("警告");
 
-                            builder.create().show();
-                        }
+//                            builder.setPositiveButton("开锁", new DialogInterface.OnClickListener() {
+//                                public void onClick(DialogInterface dialog, int which) {
+//                                    lock=1; //电磁锁上电
+//
+//                                }
+//                            });
+
+                        builder.setNegativeButton("完成",
+                                new android.content.DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
+                                    if (adc>1000){
+                                        level=100;
+                                        //lock=0;
+                                        levelFlag=false;
+                                        dialog.dismiss();
+                                    }
+//                                        level=100;
+//                                        //lock=0;
+//                                        levelFlag=false;
+//                                        dialog.dismiss();
+                                    }
+                                });
+
+                        builder.create().show();
 
                     }
                     break;
